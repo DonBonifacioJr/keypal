@@ -121,7 +121,8 @@ __ALIGN_BEGIN static uint8_t CUSTOM_HID_ReportDesc_FS[USBD_CUSTOM_HID_REPORT_DES
 		    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
 		    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
 		    0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
-		    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)  /* USER CODE END 0 */
+		    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
+  /* USER CODE END 0 */
   0xC0    /*     END_COLLECTION	             */
 };
 

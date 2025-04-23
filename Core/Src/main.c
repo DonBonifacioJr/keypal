@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "i2c.h"
 #include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
@@ -25,6 +26,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_customhid.h"
+#include "keyboard.h"
+#include "keyscanner.h"
+#include "keymaps/keypal_L1.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,12 +55,13 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void DebounceKeys();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint8_t KeyMatrix[4][3] = {0};
+uint8_t debounced_matrix[4][3] = {0};
 /* USER CODE END 0 */
 
 /**
@@ -90,26 +95,61 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_USB_DEVICE_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   extern USBD_HandleTypeDef hUsbDeviceFS;
   uint8_t HID_buffer[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+  uint8_t Current_Layer = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HID_buffer[0] = 2;
-	  HID_buffer[2] = 7;
-	  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
+	  // SANITY CHECK !!!
+//	  HID_buffer[0] = 2;
+//	  HID_buffer[2] = 9;
+//	  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
+//
+//	  HAL_Delay(200);
+//
+//	  HID_buffer[0] = 0;
+//	  HID_buffer[2] = 0;
+//	  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
+//
+//	  HAL_Delay(2000);
+//
+//	  ReleaseAllKeys(hUsbDeviceFS, 0);
+//	  HAL_Delay(2000);
 
-	  HAL_Delay(200);
+	  ResetAllCols();
 
-	  HID_buffer[0] = 0;
-	  HID_buffer[2] = 0;
-	  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
+	  ScanKeys();
 
-	  HAL_Delay(2000);
+	  if (KeyMatrix[0][0])
+	  {
+		  HID_buffer[0] = 0;
+		  HID_buffer[2] = KEY_MAP[Current_Layer][0][0];
+		  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
+	  }
+	  else if (KeyMatrix[3][0])
+	  {
+		  HID_buffer[0] = 0;
+		  HID_buffer[2] = KEY_MAP[Current_Layer][3][0];
+		  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
+	  }
+	  else {
+		  ReleaseAllKeys(hUsbDeviceFS, 0);
+	  }
+
+	  HAL_Delay(100);
+	  //ReleaseAllKeys(hUsbDeviceFS, 0);
+	  //DebounceKeys();
+
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -165,6 +205,61 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void ScanKeys()
+{
+
+	ResetAllCols();
+	for (int col = 0; col < NUM_COLS; col++)
+	{
+		//Poll 1 column at a time low to read rows
+		SetCol(col);
+		HAL_Delay(5);
+
+		for (int row = 0; row < NUM_ROWS; row++)
+		{
+			if (ReadRow(row) == 1)
+			{
+				KeyMatrix[row][col] = 1;
+			} else {
+				KeyMatrix[row][col] = 0;
+			}
+		}
+		ResetAllCols();
+	}
+	DebounceKeys();
+}
+
+void DebounceKeys()
+{
+	static uint8_t previous_matrix[NUM_ROWS][NUM_COLS] = {0};
+	static uint8_t debounce_counter[NUM_ROWS][NUM_COLS] = {0};
+
+	const uint8_t debounce_threshold = 5; // number of stable reads
+
+	for (int row = 0; row < NUM_ROWS; row++)
+	{
+		for (int col = 0; col < NUM_COLS; col++)
+		{
+			if(KeyMatrix[row][col] == previous_matrix[row][col])
+			{
+				if(debounce_counter[row][col] < debounce_threshold)
+				{
+					debounce_counter[row][col]++;
+				}
+
+				if(debounce_counter[row][col] == debounce_threshold)
+				{
+					debounced_matrix[row][col] = KeyMatrix[row][col];
+				}
+			}
+			else
+			{
+				debounce_counter[row][col] = 0;
+				previous_matrix[row][col] = KeyMatrix[row][col];
+			}
+		}
+	}
+}
 
 /* USER CODE END 4 */
 
