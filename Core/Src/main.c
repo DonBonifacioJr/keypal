@@ -62,6 +62,7 @@ void DebounceKeys();
 /* USER CODE BEGIN 0 */
 uint8_t KeyMatrix[4][3] = {0};
 uint8_t debounced_matrix[4][3] = {0};
+uint8_t PreviousKeyMatrix[4][3] = {0};
 /* USER CODE END 0 */
 
 /**
@@ -122,28 +123,48 @@ int main(void)
 //
 //	  ReleaseAllKeys(hUsbDeviceFS, 0);
 //	  HAL_Delay(2000);
-
 	  ResetAllCols();
+	  //USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
 
 	  ScanKeys();
 
-	  if (KeyMatrix[0][0])
-	  {
-		  HID_buffer[0] = 0;
-		  HID_buffer[2] = KEY_MAP[Current_Layer][0][0];
-		  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
-	  }
-	  else if (KeyMatrix[3][0])
-	  {
-		  HID_buffer[0] = 0;
-		  HID_buffer[2] = KEY_MAP[Current_Layer][3][0];
-		  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
-	  }
-	  else {
-		  ReleaseAllKeys(hUsbDeviceFS, 0);
-	  }
+//	  if (KeyMatrix[0][0])
+//	  {
+//		  HID_buffer[0] = 0;
+//		  HID_buffer[Key_Index] = KEY_MAP[Current_Layer][0][0];
+//		  Key_Index++;
+//	  }
 
-	  HAL_Delay(100);
+	  int key_count = 2;
+
+	  for (int row = 0; row < 4; row++)
+	  {
+		  for (int col = 0; col < 3; col++)
+		  {
+			  if(KeyMatrix[row][col])
+			  {
+				  uint8_t keycode = KEY_MAP[Current_Layer][row][col];
+
+				  if (keycode >= 0xE0)
+				  {
+					  HID_buffer[0] |= (1 << (keycode - 0xE0));
+				  }
+				  else if (key_count < 8)
+				  {
+					  HID_buffer[key_count++] = keycode;
+				  }
+			  }
+		  }
+	  }
+	  for (int i = key_count; i < 8; i++)
+	  {
+	          HID_buffer[i] = 0;
+	  }
+	  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
+
+
+
+	  //HAL_Delay(1);
 	  //ReleaseAllKeys(hUsbDeviceFS, 0);
 	  //DebounceKeys();
 
@@ -213,7 +234,7 @@ void ScanKeys()
 	{
 		//Poll 1 column at a time low to read rows
 		SetCol(col);
-		HAL_Delay(5);
+		//HAL_Delay(5);
 
 		for (int row = 0; row < NUM_ROWS; row++)
 		{
