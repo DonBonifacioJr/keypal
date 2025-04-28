@@ -136,6 +136,22 @@ int main(void)
 //	  }
 
 	  int key_count = 2;
+	  int ComboCheck = 0;
+	  HID_buffer[0] = 0;
+
+	  while (debounced_matrix[0][0] && debounced_matrix[0][2] && debounced_matrix[3][0])
+	  {
+		  if (!ComboCheck)
+		  {
+			  Current_Layer++;
+			  if (Current_Layer >= 3)
+			  {
+				  Current_Layer = 0;
+			  }
+			  ComboCheck = 1;
+		  }
+		  ScanKeys();
+	  }
 
 	  for (int row = 0; row < 4; row++)
 	  {
@@ -148,6 +164,7 @@ int main(void)
 				  if (keycode >= 0xE0)
 				  {
 					  HID_buffer[0] |= (1 << (keycode - 0xE0));
+					  HID_buffer[key_count++] = keycode;
 				  }
 				  else if (key_count < 8)
 				  {
@@ -161,7 +178,7 @@ int main(void)
 	          HID_buffer[i] = 0;
 	  }
 	  USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, HID_buffer, 8);
-
+	  ComboCheck = 0;
 
 
 	  //HAL_Delay(1);
